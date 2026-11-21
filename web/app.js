@@ -233,18 +233,18 @@ $("#turn").onclick = () => {
 
 // Textures by the paint cache's key: a slider change reuses every one.
 const textures = new Map();
-async function textureFor(section) {
-  if (!section.texture) return null;
-  const k = section.key || section.texture;
+async function textureFor(path, k, colour = true) {
+  if (!path) return null;
+  k ||= path;
   if (!textures.has(k)) {
     textures.set(k, (async () => {
-      const [buf] = await readFiles([section.texture]);
+      const [buf] = await readFiles([path]);
       if (!buf) return null;
       const img = new Image();
       img.src = URL.createObjectURL(new Blob([buf], { type: "image/png" }));
       await img.decode();
       const tex = new THREE.Texture(img);
-      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.colorSpace = colour ? THREE.SRGBColorSpace : THREE.NoColorSpace;
       tex.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
       tex.needsUpdate = true;
       return tex;
@@ -267,12 +267,14 @@ async function showPreview(pv) {
     g.setAttribute("normal", new THREE.InterleavedBufferAttribute(ib, 3, 3));
     g.setAttribute("uv", new THREE.InterleavedBufferAttribute(ib, 2, 6));
     g.setIndex(new THREE.BufferAttribute(idx, 1));
-    const map = await textureFor(s);
-    if (s.key) used.add(s.key);
+    const map = await textureFor(s.texture, s.key);
+    const normalMap = s.hair ? null : await textureFor(s.normal, s.key && `${s.key}_n`, false);
+    if (s.key) { used.add(s.key); used.add(`${s.key}_n`); }
     const cut = s.hair || pv.opacity?.[s.material];
     const mat = new THREE.MeshStandardMaterial({
       map, color: map ? 0xffffff : 0xb8b8b8, roughness: 0.78, metalness: 0,
       side: cut ? THREE.DoubleSide : THREE.FrontSide, alphaTest: cut ? 0.4 : 0, transparent: false,
+      ...(normalMap && { normalMap }),
     });
     const mesh = new THREE.Mesh(g, mat);
     mesh.name = s.object;

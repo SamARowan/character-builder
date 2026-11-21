@@ -92,6 +92,10 @@ def _patch(max_texture: int) -> None:
     from fuse_mcp import character, substances, textures
 
     _state["max_texture"] = max_texture
+    # Scalp hair, brows, beards and makeup: masks baked from the body substance (pack/bake_body_masks.py).
+    masks = Path(__file__).resolve().parent / "body_masks"
+    if masks.is_dir():
+        textures.BODY_MASKS = masks
 
     # The pack's .sbsar files are their XML descriptions.
     def _description(sbsar: Path):
@@ -375,14 +379,21 @@ def preview() -> dict:
     keys = {m.name: getattr(m, "cache_key", None) or f"{m.name}-{id(m)}" for m in char.materials}
     # One PNG per painted set of maps, kept while it's in use: the page caches textures by key.
     for old in folder.glob("*.png"):
-        if old.stem not in keys.values():
+        if old.stem.removesuffix("_n") not in keys.values():
             old.unlink()
-    textures = {}
+    textures, normals = {}, {}
     for name, image in scene.images.items():
         p = folder / f"{keys.get(name, name)}.png"
         if not p.exists():
             Image.fromarray(image[::-1]).save(p, compress_level=1)
         textures[name] = str(p)
+    # Normal maps (Age blends the body's two): the viewer lights with them.
+    for m in char.materials:
+        if m.normal and char.texture_dir:
+            p = folder / f"{keys[m.name]}_n.png"
+            if not p.exists():
+                shutil.copyfile(Path(char.texture_dir) / m.normal, p)
+            normals[m.name] = str(p)
     sections, chunks, offset = [], [], 0
     for o in scene.objects:
         by_material: dict[str, list] = {}
@@ -393,6 +404,7 @@ def preview() -> dict:
             data = [np.ascontiguousarray(o.vertices[used], np.float32).tobytes(), tris.astype(np.uint32).tobytes()]
             sections.append({"object": o.name, "material": material, "offset": offset, "vertices": len(used),
                              "indices": len(tris), "texture": textures.get(material),
+                             "normal": normals.get(material),
                              "key": keys.get(material), "hair": material.startswith(("Hair_", "Beard_",
                                                                                       "Eyebrow", "Eyelash"))})
             chunks += data

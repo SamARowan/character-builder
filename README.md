@@ -53,6 +53,18 @@ It reads the Fuse CC install and Fuse Basic extras, and takes about 1.5 minutes.
 - **`.sbsar`**: each is replaced by its XML description. The Substance renderer isn't used, so textures
   are painted the way the desktop builder's "painted" mode does it.
 
+The body's painted-on layers (scalp hair, brows, beards, moustaches, lipstick, blush, eyeshadow, mascara,
+nails) are bitmaps inside the body Substance. `pack\bake_body_masks.py` renders each option with the desktop
+renderer, black and then white, and keeps the difference as a 512 px mask in `py\body_masks\` (git-ignored,
+shipped only inside the encrypted `py.zip`). The painter lays them over the skin in their colours. It takes
+about 50 minutes on 8 workers, and only needs running again if Adobe's Substance changes:
+
+```
+F:\REA\fuse-mcp\.venv\Scripts\python pack\bake_body_masks.py --workers 8
+```
+
+Age blends the body's two normal maps; the viewer lights with the result.
+
 ## Building and testing the page
 
 ```

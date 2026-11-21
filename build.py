@@ -29,6 +29,8 @@ def main() -> None:
     files = [(core / f"{m}.py", f"fuse_mcp/{m}.py") for m in CORE]
     files += [(f, f"fuse_mcp/proto/descriptors/{f.name}") for f in sorted((core / "proto" / "descriptors").glob("*.pb"))]
     files.append((HERE / "py" / "fuseweb.py", "fuseweb.py"))
+    # The body substance's hair and makeup masks (pack/bake_body_masks.py): Adobe's, so only in py.zip.enc.
+    files += [(f, f"body_masks/{f.name}") for f in sorted((HERE / "py" / "body_masks").glob("*.png"))]
     digest = hashlib.sha1()
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for src, name in files:

@@ -1,6 +1,7 @@
 # Adobe's Fuse content: never commit or publish it.
 dist-content/
 *.fpk
+py/body_masks/
 
 # Test output
 test/node_modules/

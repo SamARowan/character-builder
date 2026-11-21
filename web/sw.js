@@ -1,6 +1,6 @@
 // Keeps the page working offline: everything it needs is cached on install. The content pack is
 // downloaded once into the browser's private storage, so its parts (pack/) are never cached here.
-const VERSION = "43ba53c973";
+const VERSION = "11b02db21f";
 const CACHE = `fuse-builder-${VERSION}`;
 const FILES = [
   "./", "index.html", "app.js", "style.css", "worker.js", "aes.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png",
