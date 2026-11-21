@@ -1,9 +1,9 @@
 // Keeps the page working offline: everything it needs is cached on install. The content pack is
 // downloaded once into the browser's private storage, so its parts (pack/) are never cached here.
-const VERSION = "c69c6f1ebf";
+const VERSION = "43ba53c973";
 const CACHE = `fuse-builder-${VERSION}`;
 const FILES = [
-  "./", "index.html", "app.js", "style.css", "worker.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png",
+  "./", "index.html", "app.js", "style.css", "worker.js", "aes.js", "manifest.webmanifest", "icon.svg", "icon-180.png", "icon-192.png", "icon-512.png",
   "vendor/js/three.module.min.js", "vendor/js/OrbitControls.js", "vendor/js/fflate.mjs",
   "vendor/pyodide/pyodide.mjs", "vendor/pyodide/pyodide.asm.js", "vendor/pyodide/pyodide.asm.wasm",
   "vendor/pyodide/python_stdlib.zip", "vendor/pyodide/pyodide-lock.json",

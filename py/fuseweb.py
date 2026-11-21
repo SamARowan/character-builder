@@ -278,8 +278,14 @@ def open_fuse(path: str, name: str = "") -> dict:
 
 
 def project_json() -> str:
+    """The character as a fuse-mcp project, the file the desktop builder opens (File > Open).
+    The web paints its textures (render 0); the file asks for full Substance renders, so the PC
+    builds the character at full quality. Opening it here sets render 0 again."""
+    from fuse_mcp.project import FULL_DETAIL
     _session.dirty = False
-    return json.dumps(_session.project.to_dict(), indent=1)
+    d = _session.project.to_dict()
+    d.setdefault("export", {})["render"] = FULL_DETAIL
+    return json.dumps(d, indent=1)
 
 
 def fuse_file() -> str:

@@ -1,6 +1,7 @@
 // The page: a three.js viewer and panels over the worker (worker.js), which runs the builder.
 import * as THREE from "three";
 import { OrbitControls } from "./vendor/js/OrbitControls.js";
+import { zipSync, unzipSync, strToU8, strFromU8 } from "./vendor/js/fflate.mjs";
 
 const $ = (s, el = document) => el.querySelector(s);
 const el = (tag, props = {}, ...kids) => {
@@ -83,9 +84,21 @@ function fileUrl(path, type = "image/png") {
   urlCache.set(path, pr);
   return pr;
 }
+// Thumbnails load as they scroll into view: with the pack streamed, each one is a download.
+const thumbObserver = new IntersectionObserver((entries) => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    thumbObserver.unobserve(e.target);
+    const img = e.target;
+    fileUrl(img.dataset.path).then((u) => { if (u) img.src = u; });
+  }
+}, { rootMargin: "300px" });
 function thumb(path, alt = "") {
-  const img = el("img", { alt, loading: "lazy", decoding: "async" });
-  if (path) fileUrl(path).then((u) => { if (u) img.src = u; });
+  const img = el("img", { alt, decoding: "async" });
+  if (path) {
+    if (urlCache.has(path)) fileUrl(path).then((u) => { if (u) img.src = u; });
+    else { img.dataset.path = path; thumbObserver.observe(img); }
+  }
   return img;
 }
 
@@ -695,6 +708,41 @@ const fileName = (ext) => `${(state.info?.name || "Character").replace(/[^\w\- ]
 $("#save-json").onclick = async () => {
   try { download(fileName("json"), await call("project_json"), "application/json"); } catch (e) { fail(e); }
 };
+$("#save-file").onclick = () => $("#save-json").onclick();
+
+// Every character on this device in one .zip of project files: unzip it on the PC and open any of
+// them in the desktop builder, or open the .zip here to bring them all back.
+$("#save-all").onclick = async () => {
+  try {
+    if (savePending) await saveNow();
+    const list = await saved.all();
+    if (!list.length) { toast("No characters saved yet."); return; }
+    const files = {}, used = new Set();
+    for (const r of list) {
+      let base = (r.name || "Character").replace(/[^\w\- ]+/g, "_").trim() || "Character", n = base, i = 2;
+      while (used.has(n.toLowerCase())) n = `${base} ${i++}`;
+      used.add(n.toLowerCase());
+      files[`${n}.json`] = strToU8(r.json);
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    download(`Characters ${stamp}.zip`, zipSync(files, { level: 6 }), "application/zip");
+  } catch (e) { fail(e); }
+};
+
+async function openZip(file) {
+  const entries = unzipSync(new Uint8Array(await file.arrayBuffer()), { filter: (f) => /\.json$/i.test(f.name) });
+  let n = 0;
+  for (const [path, data] of Object.entries(entries)) {
+    const json = strFromU8(data);
+    let name = path.replace(/^.*\//, "").replace(/\.json$/i, "");
+    try { name = JSON.parse(json).name || name; } catch { continue; }
+    await saved.put({ id: crypto.randomUUID(), name, body: null, json, thumb: "", updated: Date.now() });
+    n++;
+  }
+  toast(n ? `Added ${n} character${n === 1 ? "" : "s"} to Characters.` : "No character files in that zip.");
+  setTab("saved");
+}
+
 $("#save-fuse").onclick = async () => {
   try {
     const path = await call("fuse_file");
@@ -707,6 +755,7 @@ async function openFile(file) {
   try {
     const name = file.name.replace(/\.[^.]+$/, "");
     let info;
+    if (/\.zip$/i.test(file.name)) { await openZip(file); return; }
     if (/\.fuse$/i.test(file.name)) {
       const path = await ask({ cmd: "write", path: `/tmp/import/${Date.now()}.fuse`, data: await file.arrayBuffer() });
       info = await busy("Opening", () => call("open_fuse", [path, name]));
@@ -766,8 +815,13 @@ $("#new-char").onclick = () => pickBody("New character: pick a body");
 async function renderPackInfo() {
   const st = await ask({ cmd: "status" });
   const m = st.pack?.manifest ?? {};
+  const p = st.pack;
+  $("#pack-replace").textContent = p.streaming ? "Use a pack file instead" : "Replace the pack";
+  $("#pack-remove").textContent = p.streaming ? "Clear the downloaded parts" : "Remove it from this device";
   $("#pack-info").replaceChildren(el("p", { className: "hint", innerHTML:
-    `${(st.pack.bytes / 1e6).toFixed(0)} MB, ${st.pack.files.toLocaleString()} files, made ${m.created}. ` +
+    (p.streaming ? `Streamed from the site as you use it: ${(p.cached / 1e6).toFixed(0)} of ${(p.bytes / 1e6).toFixed(0)} MB ` +
+      `kept on this device so far (those work offline). ` : `${(p.bytes / 1e6).toFixed(0)} MB, stored on this device. `) +
+    `${p.files.toLocaleString()} files, made ${m.created}. ` +
     `Textures up to ${m.max_texture} px.<br>This site's storage: ${((st.usage ?? 0) / 1e6).toFixed(0)} MB used` +
     `${st.quota ? ` of ${(st.quota / 1e9).toFixed(1)} GB` : ""}.` +
     (st.site?.newer ? `<br><strong>The site has a different pack (made ${st.site.created}). Replace to download it.</strong>` : "") }));
@@ -784,7 +838,7 @@ $("#pack-replace").onclick = () => {
   location.reload();   // the running builder holds the pack open; the setup screen takes the file
 };
 $("#pack-remove").onclick = async () => {
-  if (!confirm("Remove the content pack from this device? You'll need the file again to use the builder. Your characters stay.")) return;
+  if (!confirm("Remove the content pack's files from this device? Your characters stay.")) return;
   sessionStorage.setItem("fb.remove", "1");
   location.reload();
 };

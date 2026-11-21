@@ -51,7 +51,11 @@ lap("first character built");
 await page.waitForTimeout(800);
 await shot("5-built");
 
-await page.waitForTimeout(1500);   // the autosave
+await page.waitForFunction(async () => {   // the autosave has landed
+  const db = await new Promise((r) => { const q = indexedDB.open("fuse-builder"); q.onsuccess = () => r(q.result); });
+  return new Promise((r) => { const q = db.transaction("characters").objectStore("characters").count(); q.onsuccess = () => r(q.result > 0); });
+}, null, { timeout: 120000, polling: 500 });
+lap("autosaved");
 console.log("before reload:", await page.evaluate(() => { const s = window.fuseBuilder.state; return { current: s.current, open: s.info?.open, name: s.info?.name }; }));
 await page.reload();
 await page.waitForSelector("#app:not([hidden]), #lock:not([hidden]), #setup:not([hidden])", { timeout: 120000 });

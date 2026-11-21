@@ -75,6 +75,9 @@
     </button>
     <input id="char-name" class="name" type="text" spellcheck="false" autocomplete="off" aria-label="Character name">
     <span id="busy" class="busy" hidden><span class="dot"></span><span id="busy-text">Building</span></span>
+    <button id="save-file" class="icon-btn" title="Save to a file" aria-label="Save the character to a file">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+    </button>
   </header>
 
   <div class="viewport" id="viewport">
@@ -167,9 +170,12 @@
       <div class="row wrap">
         <button id="new-char" class="btn primary">New character</button>
         <label class="btn file-btn">Open a file
-          <input id="open-file" type="file" accept=".json,.fuse,application/json">
+          <input id="open-file" type="file" accept=".json,.fuse,.zip,application/json,application/zip">
         </label>
+        <button id="save-all" class="btn">Save all to one file</button>
       </div>
+      <p class="hint">Character files (.json) open in the desktop builder with File → Open, which renders them at full quality.
+        "Save all" makes one .zip of them that this page can also open again.</p>
       <div id="saved-list" class="saved-list"></div>
       <details class="card pack-info">
         <summary>Content pack</summary>

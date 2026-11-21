@@ -9,10 +9,11 @@
 // The salt stays fixed so devices that unlocked once keep working after a rebuild. Changing the
 // password re-encrypts everything.
 //
-// Format: the plaintext is cut into RECORD-byte records, each sealed with AES-GCM (16-byte tag),
-// IV = 8-byte per-file random prefix || u32 BE record number. Records are grouped PER_PART to a
-// part file (under GitHub's 100 MB file limit). web/secure.json describes it all, plus a check
-// value the page uses to tell a wrong password at once.
+// Formats. py.zip: cut into RECORD-byte records, each sealed with AES-GCM (16-byte tag),
+// IV = 8-byte per-file random prefix || u32 BE record number. The pack: AES-CTR over the whole
+// file, cut into PART-byte part files (under GitHub's 100 MB limit), so the page streams it with
+// range requests and decrypts any piece on its own (see web/aes.js). web/secure.json describes it
+// all, plus a check value the page uses to tell a wrong password at once.
 
 import { webcrypto as crypto, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, openSync, readFileSync, readSync, closeSync, rmSync, readdirSync, writeFileSync, statSync } from "node:fs";
@@ -40,10 +41,40 @@ function secret() {
   return { password: readFileSync(pw, "utf8").trim(), salt: Buffer.from(readFileSync(salt, "utf8").trim(), "base64") };
 }
 
-async function deriveKey(password, salt) {
-  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveKey"]);
-  return crypto.subtle.deriveKey({ name: "PBKDF2", hash: "SHA-256", salt, iterations: ITERATIONS }, base,
-                                 { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]);
+// The raw 32-byte key; the page derives the same bytes (it needs them for its synchronous AES).
+async function deriveRaw(password, salt) {
+  const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt, iterations: ITERATIONS }, base, 256));
+}
+const deriveKey = async (password, salt) => (KEY_RAW = await deriveRaw(password, salt),
+  crypto.subtle.importKey("raw", KEY_RAW, "AES-GCM", false, ["encrypt", "decrypt"]));
+let KEY_RAW;
+
+// The pack: AES-CTR (no per-record framing), so the page can fetch any byte range of a part and
+// decrypt just that. Counter block = 8-byte nonce || 64-bit big-endian block number (offset / 16).
+const PART = 44 << 20;   // a multiple of 16 and of the page's 64 KB cache chunks
+async function encryptPackCtr(src, outDir, base, partExt) {
+  const key = await crypto.subtle.importKey("raw", KEY_RAW, "AES-CTR", false, ["encrypt"]);
+  const size = statSync(src).size, nonce = randomBytes(8), parts = [];
+  mkdirSync(outDir, { recursive: true });
+  for (const f of readdirSync(outDir)) if (f.startsWith(`${base}.`) && f.endsWith(partExt)) rmSync(join(outDir, f));
+  const fd = openSync(src, "r");
+  try {
+    for (let p = 0; p * PART < size; p++) {
+      const n = Math.min(PART, size - p * PART), buf = Buffer.alloc(n);
+      readSync(fd, buf, 0, n, p * PART);
+      const counter = new Uint8Array(16);
+      counter.set(nonce);
+      new DataView(counter.buffer).setBigUint64(8, BigInt((p * PART) / 16));
+      const ct = Buffer.from(await crypto.subtle.encrypt({ name: "AES-CTR", counter, length: 64 }, key, buf));
+      const name = `${base}.${String(p).padStart(2, "0")}${partExt}`;
+      writeFileSync(join(outDir, name), ct);
+      parts.push({ name, bytes: ct.length });
+      process.stdout.write(`\r${base}: part ${p + 1} of ${Math.ceil(size / PART)}`);
+    }
+  } finally { closeSync(fd); }
+  process.stdout.write("\n");
+  return { mode: "ctr", size, part: PART, nonce: nonce.toString("base64"), parts };
 }
 
 const ivFor = (prefix, n) => { const iv = new Uint8Array(12); iv.set(prefix); new DataView(iv.buffer).setUint32(8, n); return iv; };
@@ -113,7 +144,7 @@ async function main() {
     readSync(fh, idx, 0, n, at);
     closeSync(fh);
     const created = JSON.parse(idx.toString("utf8")).manifest.created;
-    secure.files.pack = { ...(await encryptFile(key, src, join(WEB, "pack"), "fuse-content", ".bin")), created };
+    secure.files.pack = { ...(await encryptPackCtr(src, join(WEB, "pack"), "fuse-content", ".bin")), created };
   }
   writeFileSync(SECURE, JSON.stringify(secure, null, 1) + "\n");
   console.log(`wrote ${SECURE}${same ? "" : " (new key)"}`);
