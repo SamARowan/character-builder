@@ -88,8 +88,25 @@ async function decryptFile(desc, dir, onRecord, label) {
       try {
         const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-        data = new Uint8Array(await res.arrayBuffer());
-        if (data.byteLength !== desc.parts[p].bytes) throw new Error("cut short");
+        // Read it as it arrives so the bar moves during the download, not only after each part.
+        const total = desc.parts[p].bytes;
+        data = new Uint8Array(total);
+        let got = 0, shown = 0;
+        const reader = res.body.getReader();
+        for (;;) {
+          const { done: end, value } = await reader.read();
+          if (end) break;
+          if (got + value.byteLength > total) throw new Error("longer than expected");
+          data.set(value, got);
+          got += value.byteLength;
+          if (label && got - shown > (1 << 20)) {
+            shown = got;
+            const before = desc.parts.slice(0, p).reduce((a, x) => a + x.bytes, 0);
+            const all = desc.parts.reduce((a, x) => a + x.bytes, 0);
+            progress(`${label}: ${((before + got) / 1e6).toFixed(0)} of ${(all / 1e6).toFixed(0)} MB`, (before + got) / all);
+          }
+        }
+        if (got !== total) throw new Error("cut short");
         break;
       } catch (e) {
         if (attempt >= 4) throw new Error(`Couldn't download ${desc.parts[p].name}: ${e.message}`);
@@ -112,7 +129,6 @@ async function decryptFile(desc, dir, onRecord, label) {
       at += n;
       onRecord(plain, r);
       done += plain.byteLength;
-      if (label) progress(`${label}: ${(done / 1e6).toFixed(0)} of ${(desc.size / 1e6).toFixed(0)} MB`, done / desc.size);
     }
   }
 }
