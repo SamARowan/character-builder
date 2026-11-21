@@ -1,0 +1,80 @@
+{
+ "format": "fuse-web-secure",
+ "version": 1,
+ "kdf": {
+  "name": "PBKDF2-SHA256",
+  "salt": "8lkP500ko2f1HJv3670qRA==",
+  "iterations": 600000
+ },
+ "check": {
+  "iv": "SMFOEnHhoU8KgiMD",
+  "data": "xhFo1j1WoShJYpqfhJ15F5bW5xYXCCk5colBK3Y9mBgt"
+ },
+ "files": {
+  "py": {
+   "size": 75200,
+   "record": 4194304,
+   "per_part": 11,
+   "prefix": "MYNOFYxue6I=",
+   "parts": [
+    {
+     "name": "py.zip.enc",
+     "bytes": 75216
+    }
+   ]
+  },
+  "pack": {
+   "size": 489479559,
+   "record": 4194304,
+   "per_part": 11,
+   "prefix": "H4HjKg/UWHA=",
+   "parts": [
+    {
+     "name": "fuse-content.00.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.01.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.02.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.03.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.04.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.05.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.06.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.07.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.08.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.09.bin",
+     "bytes": 46137520
+    },
+    {
+     "name": "fuse-content.10.bin",
+     "bytes": 28106231
+    }
+   ],
+   "created": "2026-11-21 15:40"
+  }
+ }
+}

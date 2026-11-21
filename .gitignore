@@ -1,0 +1,14 @@
+# Adobe's Fuse content: never commit or publish it.
+dist-content/
+*.fpk
+
+# Test output
+test/node_modules/
+test/shots/
+test/.profile-*/
+test/sheet-*.png
+__pycache__/
+
+# The site password (never published) and the plain builder Python (the site has it encrypted)
+secret/
+web/py.zip
